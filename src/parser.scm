@@ -1,0 +1,247 @@
+(declare (uses token ast)
+         (unit parser))
+
+(import coops)
+
+(define (parsing-error token message)
+  (report (token-line token)
+          (if (eq? (token-type token) #:EOF)
+              " at end"
+              (string-append " at '" (token-lexeme token) "'"))
+          message))
+
+(define-syntax define-binary-ops
+  (syntax-rules (->)
+    ((_ ((name -> next-down) (tokens ...) <node-type>))
+     (define (name)
+       (let loop ((expr (next-down)))
+         (if (not (match! tokens ...))
+             expr
+             (let ((operator prev-token))
+               (loop (make <node-type>
+                           'left expr
+                           'operator operator
+                           'right (next-down))))))))
+    ((_ one-op more-ops ...)
+     (begin (define-binary-ops one-op)
+            (define-binary-ops more-ops ...)))))
+
+(define (parse tokens)
+  (define prev-token)
+  (define statements '())
+
+  (define (parse-tokens)
+    (if (at-end?)
+        (reverse statements)
+        (begin
+          (set! statements (cons (top-of-grammar) statements))
+          (parse-tokens))))
+
+  ;;; Instead of throwing an exception on an error and catching it at a
+  ;;; synchronization point, we'll set continue! to the continuation at the
+  ;;; synchronization point and call it if we have an error.
+  (define continue!)
+  (define (top-of-grammar)
+    (call/cc
+      (lambda (cont)
+        (set! continue! (lambda () (synchronize!) (cont #f)))
+        (declaration))))
+
+  ;;; Grammar rules
+
+  (define (declaration)
+    (if (match! #:VAR)
+        (var-declaration)
+        (statement)))
+
+  (define (var-declaration)
+    ;;; Need to use let* because consume! and match! have side effects
+    (let* ((name (consume! #:IDENTIFIER "Expect variable name."))
+           ;;; This seems clearer than setting a default value for initializer
+           ;;; in the class definition
+           (initializer (if (match! #:EQUAL) (expression) #f)))
+      (consume! #:SEMICOLON "Expect ';' after variable declaration")
+      (make <var-stmt> 'name name 'initializer initializer)))
+
+  (define (statement)
+    (cond
+      ((match! #:FOR) (for-statement))
+      ((match! #:IF) (if-statement))
+      ((match! #:PRINT) (print-statement))
+      ((match! #:WHILE) (while-statement))
+      ((match! #:LEFT-BRACE) (block))
+      (else (expression-statement))))
+
+  (define (for-statement)
+    (consume! #:LEFT-PAREN "Expect '(' after 'for'.")
+    (let* ((initializer (cond ((match! #:SEMICOLON) #f)
+                              ((match! #:VAR) (var-declaration))
+                              (else (expression-statement))))
+           (condition (if (check? #:SEMICOLON)
+                          (make <literal> 'value #t)
+                          (expression))))
+      (consume! #:SEMICOLON "Expect ';' after loop condition.")
+      (let ((increment (if (check? #:RIGHT-PAREN) #f (expression))))
+        (consume! #:RIGHT-PAREN "Expect ')' after for clauses.")
+        (let ((body (statement)))
+          (if increment
+              (set! body (make <block> 'statements (list body increment))))
+          (set! body (make <while> 'condition condition 'body body))
+          (if initializer
+              (set! body (make <block> 'statements (list initializer body))))
+          body))))
+
+  (define (if-statement)
+    (consume! #:LEFT-PAREN "Expect '(' after 'if'.")
+    (let ((condition (expression)))
+      (consume! #:RIGHT-PAREN "Expect ')' after if condition.")
+      (let* ((then-branch (statement))
+             (else-branch (if (match! #:ELSE) (statement) #f)))
+        (make <if>
+              'condition condition
+              'then-branch then-branch
+              'else-branch else-branch))))
+
+  (define (print-statement)
+    (let ((value (expression)))
+      (consume! #:SEMICOLON "Expect ';' after value.")
+      (make <print> 'expression value)))
+
+  (define (while-statement)
+    (consume! #:LEFT-PAREN "Expect '(' after 'while'.")
+    (let ((condition (expression)))
+      (consume! #:RIGHT-PAREN "Expect ')' after condition.")
+      (make <while> 'condition condition 'body (statement))))
+
+  (define (block)
+    (let loop ((statements '()))
+      (if (or (check? #:RIGHT-BRACE) (at-end?))
+          (begin
+            (consume! #:RIGHT-BRACE "Expect '}' after block.")
+            (make <block> 'statements (reverse statements)))
+          (loop (cons (declaration) statements)))))
+
+  (define (expression-statement)
+    (let ((expr (expression)))
+      (consume! #:SEMICOLON "Expect ';' after expression.")
+      (make <expr-stmt> 'expression expr)))
+
+  (define (expression)
+    (assignment))
+
+  (define (assignment)
+    (let ((expr (logic-or)))
+      (if (match! #:EQUAL)
+          (let* ((equals prev-token)
+                 (value (assignment)))
+            (if (eq? (class-of expr) <variable>)
+                (make <assignment> 'name (slot-value expr 'name) 'value value)
+                (parsing-error equals "Invalid assignment target.")))
+          expr)))
+
+  (define-binary-ops
+    ((logic-or -> logic-and) (#:OR) <logical>)
+    ((logic-and -> equality) (#:AND) <logical>)
+    ((equality -> comparison) (#:BANG-EQUAL #:EQUAL-EQUAL) <binary>)
+    ((comparison -> addition)
+     (#:GREATER #:GREATER-EQUAL #:LESS #:LESS-EQUAL)
+     <binary>)
+    ((addition -> multiplication) (#:MINUS #:PLUS) <binary>)
+    ((multiplication -> unary) (#:SLASH #:STAR) <binary>))
+
+  (define (unary)
+    (cond
+      ((match! #:BANG #:MINUS)
+       (let ((operator prev-token))
+         ;;; This let is necessary because the order in which Scheme evaluates
+         ;;; the operands of a procedure is undefined.  The recursive call to
+         ;;; unary may modify prev-token before prev-token is resolved.
+         ;;; (see SICP exercise 4.1)
+         (make <unary> 'operator operator 'right (unary))))
+      ;;; Chapter 6, challenge #3 : error productions
+      ((match! #:BANG-EQUAL #:EQUAL-EQUAL #:GREATER #:GREATER-EQUAL #:LESS
+               #:LESS-EQUAL #:PLUS #:SLASH #:STAR)
+       (parsing-error prev-token "Binary operator used as unary")
+       (unary))
+      (else (call))))
+
+  (define (call)
+    (let loop ((expr (primary)))
+      (if (match! #:LEFT-PAREN)
+          (loop (finish-call expr))
+          expr)))
+
+  (define (finish-call callee)
+    (let* ((args (call-arguments))
+           (paren (consume! #:RIGHT-PAREN "Expect ')' after arguments.")))
+      (make <call> 'callee callee 'paren paren 'arguments args)))
+
+  (define (call-arguments)
+    (if (check? #:RIGHT-PAREN)
+        '()
+        (let loop ((args (list (expression))))
+          (if (>= (length args) 255)
+              (parsing-error (peek) "Can't have more than 255 arguments"))
+          (if (match! #:COMMA)
+              (loop (cons (expression) args))
+              (reverse args)))))
+
+  (define (primary)
+    (cond
+      ((match! #:FALSE) (make <literal> 'value #f))
+      ((match! #:TRUE) (make <literal> 'value #t))
+      ((match! #:NIL) (make <literal> 'value '()))
+      ((match! #:NUMBER #:STRING)
+       (make <literal> 'value (token-literal prev-token)))
+      ((match! #:LEFT-PAREN)
+        (let ((expr (expression)))
+          (consume! #:RIGHT-PAREN "Expect ')' after expression.")
+          (make <grouping> 'expression expr)))
+      ((match! #:IDENTIFIER) (make <variable> 'name prev-token))
+      (else (parsing-error (peek) "Expect expression.")
+            (continue!))))
+
+  ;;; Helper procedures
+
+  (define (synchronize!)
+    (advance!)
+    (unless
+      (or (at-end?)
+          (eq? prev-token #:SEMICOLON)
+          (memq (token-type (peek))
+                '(#:CLASS #:FUN #:VAR #:FOR #:IF #:WHILE #:PRINT #:RETURN)))
+      (synchronize!)))
+
+  (define (match! . token-types)
+    (cond
+      ((null? token-types) #f)
+      ((check? (car token-types))
+       (advance!)
+       #t)
+      (else (apply match! (cdr token-types)))))
+
+  (define (consume! token-type message)
+    (if (check? token-type)
+        (advance!)
+        (begin
+          (parsing-error (peek) message)
+          (continue!))))
+
+  (define (check? expected-type)
+    (if (at-end?)
+        #f
+        (eq? (token-type (peek)) expected-type)))
+
+  (define (at-end?)
+    (eq? (token-type (peek)) #:EOF))
+
+  (define (peek)
+    (car tokens))
+
+  (define (advance!)
+    (when (not (at-end?))
+      (set! prev-token (car tokens))
+      (set! tokens (cdr tokens)))
+    prev-token)
+
+  (parse-tokens))
