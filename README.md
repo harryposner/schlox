@@ -43,8 +43,9 @@ though:
   chapter 5, section 3.1 ("The Expression Problem").
 
 - Schlox handles `NaN` as specified by IEEE 754, so all comparisons to `NaN`
-  are false.  I chose not to follow the semantics from the book because jlox
-  and clox are actually inconsistent with each other here.
+  are false.  I chose not to follow the semantics from the book because [jlox
+  and clox are actually inconsistent with each other
+  here](https://github.com/munificent/craftinginterpreters/issues/269).
 
 - Proper tail-call elimination!
 
