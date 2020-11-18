@@ -185,7 +185,7 @@
 
 (define-method (lox-eval (expr <block>) env)
   (let ((block-env (make-environment env)))
-    (for-each (lambda (stmt) (lox-eval stmt env))
+    (for-each (lambda (stmt) (lox-eval stmt block-env))
               (slot-value expr 'statements))))
 
 ; (define-method (lox-eval (expr <class>) env))
