@@ -1,7 +1,5 @@
 (declare (unit pretty-print)
-         (uses ast token))
-
-(include "src/utils.scm")
+         (uses ast token to-string))
 
 (import (chicken string)
         coops)
@@ -67,7 +65,15 @@
 (define-method (pretty-print (expr <expr-stmt>))
   (pretty-print (slot-value expr 'expression)))
 
-; (define-method (pretty-print (expr <function>)))
+(define-method (pretty-print (expr <function>))
+  (string-append "(function "
+                 (token-lexeme (slot-value expr 'name))
+                 " ("
+                 (string-intersperse
+                   (map token-lexeme (slot-value expr 'params)))
+                 ") "
+                 (pretty-print (slot-value expr 'body))
+                 ")"))
 
 (define-method (pretty-print (expr <if>))
   (let ((condition (slot-value expr 'condition))
@@ -80,7 +86,8 @@
 (define-method (pretty-print (expr <print>))
   (parenthesize "print" (slot-value expr 'expression)))
 
-; (define-method (pretty-print (expr <return>)))
+(define-method (pretty-print (expr <return>))
+  (parenthesize "return" (slot-value expr 'value)))
 
 (define-method (pretty-print (expr <var-stmt>))
   (let ((name (token-lexeme (slot-value expr 'name)))

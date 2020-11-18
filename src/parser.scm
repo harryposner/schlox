@@ -50,9 +50,37 @@
   ;;; Grammar rules
 
   (define (declaration)
-    (if (match! #:VAR)
-        (var-declaration)
-        (statement)))
+    (cond
+      ((match! #:FUN) (function "function"))
+      ((match! #:VAR) (var-declaration))
+      (else (statement))))
+
+  (define (function kind)
+    (let ((name (consume! #:IDENTIFIER
+                          (string-append "Expect " kind " name."))))
+      (consume! #:LEFT-PAREN (string-append "Expect '(' after " kind " name."))
+      (let ((params (if (check? #:RIGHT-PAREN) '() (parameters))))
+        (consume! #:RIGHT-PAREN "Expect ')' after parameters.")
+        (consume! #:LEFT-BRACE
+                  (string-append "Expect '{' before " kind " body."))
+        (make <function>
+              'name name
+              'params params
+              'body (block)))))
+
+  (define (parameters)
+    (let loop ((first-loop #t)  ;;; emulating do-while loop
+               (param-count 1)
+               (param-list '()))
+      (cond
+        ((>= param-count 255)
+         (parsing-error (peek) "Can't have more than 255 parameters."))
+        ((or first-loop (match! #:COMMA))
+         (loop #f
+               (add1 param-count)
+               (cons (consume! #:IDENTIFIER "Expect parameter name.")
+                     param-list)))
+        (else (reverse param-list)))))
 
   (define (var-declaration)
     ;;; Need to use let* because consume! and match! have side effects
@@ -68,6 +96,7 @@
       ((match! #:FOR) (for-statement))
       ((match! #:IF) (if-statement))
       ((match! #:PRINT) (print-statement))
+      ((match! #:RETURN) (return-statement))
       ((match! #:WHILE) (while-statement))
       ((match! #:LEFT-BRACE) (block))
       (else (expression-statement))))
@@ -106,6 +135,14 @@
     (let ((value (expression)))
       (consume! #:SEMICOLON "Expect ';' after value.")
       (make <print> 'expression value)))
+
+  (define (return-statement)
+    (let* ((keyword prev-token)
+           (value (if (check? #:SEMICOLON)
+                      (make <literal> 'value '())
+                      (expression))))
+      (consume! #:SEMICOLON "Expect ';' after return value.")
+      (make <return> 'keyword keyword 'value value)))
 
   (define (while-statement)
     (consume! #:LEFT-PAREN "Expect '(' after 'while'.")
@@ -181,7 +218,8 @@
         '()
         (let loop ((args (list (expression))))
           (if (>= (length args) 255)
-              (parsing-error (peek) "Can't have more than 255 arguments"))
+              ;;; Intentionally reporting error but not panicking
+              (parsing-error (peek) "Can't have more than 255 arguments."))
           (if (match! #:COMMA)
               (loop (cons (expression) args))
               (reverse args)))))

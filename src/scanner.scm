@@ -89,21 +89,22 @@
 
 
   (define (scan-comment!)
-    (unless (or (at-end?) (char=? (peek) #\n))
+    (unless (or (at-end?) (char=? (peek) #\newline))
       (advance!)
       (scan-comment!)))
 
   (define (scan-block-comment!)
     (advance!)
     (cond
-      ((at-end?) (report line "Unterminated block comment."))
-      ((and (char=? (string-ref source current) #\*)
-            (char=? (peek) #\/)))
+      ((at-end?) (scanning-error line "Unterminated block comment."))
+      ((and (char=? (peek) #\*) (char=? (peek-next) #\/))
+       (advance!)
+       (advance!))
       (else (scan-block-comment!))))
 
   (define (scan-string-literal!)
     (cond
-      ((at-end?) (report line "Unterminated string."))
+      ((at-end?) (scanning-error line "Unterminated string."))
       ((char=? (peek) #\")
        (advance!) ;;; closing quote
        (add-token! #:STRING (substring source (add1 start) (sub1 current))))

@@ -14,11 +14,3 @@
      (let ((p pred?)
            (to-test expr))
        (condp-helper p to-test clauses ...)))))
-
-(import (chicken port))
-(define (lox->string object)
-  (cond
-    ((null? object) "nil")
-    ((eq? object #t) "true")
-    ((eq? object #f) "false")
-    (else (call-with-output-string (lambda (out) (write object out))))))

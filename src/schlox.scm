@@ -38,15 +38,22 @@
       (unless (eof-object? line)
         (run-procedure line)
         (set! *had-error* #f)
+        (set! *had-runtime-error* #f)
         (loop))))
   (newline)
   (display "Bye-bye for now!")
   (newline))
 
 (define (run source)
-  (let ((statements (parse (scan source))))
-    (if (not *had-error*)  ;;; catches syntax errors
-        (for-each lox-eval-top statements))))
+  (let loop ((statements (parse (scan source))))
+    (if (and (not *had-error*)
+             (not *had-runtime-error*)
+             (not (null? statements)))
+        ;;; Can't just for-each lox-eval-top because we need to check for
+        ;;; runtime errors between each statement
+        (begin
+          (lox-eval-top (car statements))
+          (loop (cdr statements))))))
 
 (define (run-pretty-print source)
   (let ((statements (parse (scan source))))
@@ -71,10 +78,9 @@
   (set! *had-error* #t))
 
 (define (runtime-error line message)
+  (for-each (lambda (str) (display str (current-error-port)))
+            `("[line " ,(number->string line) "] "))
   (display message (current-error-port))
-  (newline (current-error-port))
-  (for-each (lambda (str) (write-string str #f (current-error-port)))
-            `("[line " ,(number->string line) "]"))
   (newline (current-error-port))
   (set! *had-runtime-error* #t))
 

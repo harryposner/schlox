@@ -6,6 +6,7 @@ OBJECT_FILES = build/scanner.o      \
 	       build/pretty-print.o \
 	       build/eval.o         \
 	       build/callable.o     \
+	       build/to-string.o    \
 	       build/schlox.o
 
 

@@ -8,9 +8,10 @@ Schlox (pronounced like schlock) is a work-in-progress implementation of [the
 Lox programming language](https://github.com/munificent/craftinginterpreters/)
 from Bob Nystrom's book [Crafting
 Interpreters](https://craftinginterpreters.com/), written in [Chicken
-Scheme](https://call-cc.org/) (I'm currently working on Chapter 10).  It's
-based on jlox, the tree-walk interpreter written in Java which he describes in
-part II of the book.  There are a few differences, though:
+Scheme](https://call-cc.org/) (I've finished through Chapter 10).  It's based
+on jlox, the tree-walk interpreter written in Java which he describes in part
+II of the book.  There are a few differences in behavior and implementation,
+though:
 
 - Running the interpreter with the flag `--pretty-print` will pretty-print the
   AST instead of evaluating it.
@@ -24,19 +25,28 @@ part II of the book.  There are a few differences, though:
   ratios, but if you write them the normal way, the syntax for addition and
   division will evaluate correctly.
 
-- The parser uses continuations instead of exceptions to recover from errors.
-  Where jlox has a `try`/`catch` block at the top of the grammar and throws a
-  `ParseError` when it encounters invalid syntax, schlox saves the current
-  continuation at the top of the grammar and calls it when it encounters
-  invalid syntax.
+- Everywhere that jlox uses exceptions for control flow, schlox uses
+  continuations.
 
-- Instead of using the vistor pattern to mimic  a functional style, schlox
+    - The jlox parser has a `try`/`catch` block at the top of the grammar
+      and throws a `ParseError` when it encounters invalid syntax.  Schlox
+      saves the current continuation at the top of the grammar and calls it
+      when it encounters invalid syntax.
+
+    - While jlox throws an exception when it reaches a return statement to
+      unwind the call stack; schlox saves the continuation of the function when
+      it's called and calls that continuation with the return value when it
+      evaluates a return statement in that function.
+
+- Instead of using the visitor pattern to mimic  a functional style, schlox
   walks the tree using multimethods.  The book hints at this in an aside in
   chapter 5, section 3.1 ("The Expression Problem").
 
 - Schlox handles `NaN` as specified by IEEE 754, so all comparisons to `NaN`
   are false.  I chose not to follow the semantics from the book because jlox
   and clox are actually inconsistent with each other here.
+
+- Proper tail-call elimination!
 
 # Requirements
 
