@@ -61,6 +61,9 @@
       (resolve (slot-value stmt 'body)))
     (set! current-function enclosing-function)))
 
+
+(define-generic (resolve ast-node))
+
 ;;; Expressions
 
 (define-method (resolve (expr <assignment>))
@@ -109,7 +112,9 @@
   (with-scope
     (for-each resolve (slot-value stmt 'statements))))
 
-; (define-method (resolve (stmt <class>)))
+(define-method (resolve (stmt <class>))
+  (declare! (slot-value stmt 'name))
+  (define! (slot-value stmt 'name)))
 
 (define-method (resolve (stmt <expr-stmt>))
   (resolve (slot-value stmt 'expression)))

@@ -8,6 +8,7 @@ SOURCE_FILES = scanner.scm      \
 	       callable.scm     \
 	       to-string.scm    \
 	       resolver.scm     \
+	       instance.scm     \
 	       schlox.scm
 
 EXECUTABLE = schlox

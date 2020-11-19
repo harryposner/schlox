@@ -49,6 +49,10 @@
       ;;; If there's no early return, then return nil
       '()))))
 
+(define-method (lox-apply (callable <lox-class>) args)
+  (make <instance> 'class callable))
+
+
 (define (callable? x)
   (memq (class-of x) (list <native-fn> <lox-fn> <lox-class>)))
 

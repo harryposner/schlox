@@ -14,6 +14,9 @@
          name
          (map (lambda (slot) (slot-value expr slot)) slot-names)))
 
+
+(define-generic (pretty-print ast-node))
+
 ;;; Expressions
 (define-method (pretty-print (expr <assignment>))
   (parenthesize "assign"

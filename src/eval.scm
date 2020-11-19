@@ -107,6 +107,9 @@
 
 (define-native (clock) (/ (current-milliseconds) 1000))
 
+
+(define-generic (lox-eval ast-node env))
+
 ;;; Expressions
 
 (define-method (lox-eval (expr <assignment>) env)
@@ -213,7 +216,16 @@
     (for-each (lambda (stmt) (lox-eval stmt block-env))
               (slot-value stmt 'statements))))
 
-; (define-method (lox-eval (stmt <class>) env))
+(define-method (lox-eval (stmt <class>) env)
+  (let ((name-token (slot-value stmt 'name)))
+    (env-define! env name-token #f)
+    (env-set! env
+              name-token
+              (make <lox-class>
+                    'name (token-lexeme name-token)
+                    'methods (make-hash-table string=? string-hash)))))
+
+
 
 (define-method (lox-eval (stmt <expr-stmt>) env)
   (lox-eval (slot-value stmt 'expression) env))

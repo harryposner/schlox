@@ -1,9 +1,11 @@
 (declare (unit to-string)
-         (uses callable token))
+         (uses callable token instance))
 
 (import (chicken port)
         coops)
 
+
+(define-generic (lox->string lox-object))
 
 (define-method (lox->string (lox-object #t))
   (cond
@@ -21,3 +23,10 @@
                     (slot-value (slot-value lox-object 'declaration)
                                 'name))
                   ">"))
+
+(define-method (lox->string (lox-object <lox-class>))
+  (slot-value lox-object 'name))
+
+(define-method (lox->string (lox-object <instance>))
+  (string-append (slot-value (slot-value lox-object 'class) 'name)
+                 " instance"))
