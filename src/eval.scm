@@ -72,7 +72,7 @@
                    value))
 
 (define (env-set-at! env name-token value depth)
-  (hash-table-set! (env-ancestor env depth)
+  (hash-table-set! (env-hash (env-ancestor env depth))
                    (token-lexeme name-token)
                    value))
 
