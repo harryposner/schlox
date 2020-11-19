@@ -3,6 +3,8 @@
 
 (import coops)
 
+(include "src/utils.scm")
+
 
 (define-syntax define-binary-ops
   (syntax-rules (->)
@@ -176,9 +178,17 @@
       (if (match! #:EQUAL)
           (let* ((equals prev-token)
                  (value (assignment)))
-            (if (eq? (class-of expr) <variable>)
-                (make <assignment> 'name (slot-value expr 'name) 'value value)
-                (lox-error equals "Invalid assignment target.")))
+            (condp eq? (class-of expr)
+                   (<variable>
+                     (make <assignment>
+                           'name (slot-value expr 'name)
+                           'value value))
+                   (<get>
+                     (make <set>
+                           'object (slot-value expr 'object)
+                           'name (slot-value expr 'name)
+                           'value value))
+                   (else (lox-error equals "Invalid assignment target."))))
           expr)))
 
   (define-binary-ops
@@ -209,9 +219,14 @@
 
   (define (call)
     (let loop ((expr (primary)))
-      (if (match! #:LEFT-PAREN)
-          (loop (finish-call expr))
-          expr)))
+      (cond
+        ((match! #:LEFT-PAREN) (loop (finish-call expr)))
+        ((match! #:DOT)
+         (loop (make <get>
+                     'object expr
+                     'name (consume! #:IDENTIFIER
+                                     "Expect property name after '.'."))))
+        (else expr))))
 
   (define (finish-call callee)
     (let* ((args (call-arguments))

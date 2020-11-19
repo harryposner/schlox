@@ -2,12 +2,13 @@
          (uses ast token to-string))
 
 (import (chicken string)
-        coops)
+        coops
+        coops-primitive-objects)
 
 
-(define (parenthesize name . exprs)
+(define (parenthesize . exprs)
   (string-append
-    "(" (string-intersperse (cons name (map pretty-print exprs))) ")"))
+    "(" (string-intersperse (map pretty-print exprs)) ")"))
 
 (define (parenthesize-slots expr name slot-names)
   (apply parenthesize
@@ -19,13 +20,11 @@
 
 ;;; Expressions
 (define-method (pretty-print (expr <assignment>))
-  (parenthesize "assign"
-                (token-lexeme (slot-value expr 'name))
-                (slot-value expr 'value)))
+  (parenthesize-slots expr "assign" '(name value)))
 
 (define-method (pretty-print (expr <binary>))
   (parenthesize-slots expr
-                      (token-lexeme (slot-value expr 'operator))
+                      (slot-value expr 'operator)
                       '(left right)))
 
 (define-method (pretty-print (expr <call>))
@@ -34,7 +33,8 @@
          (slot-value expr 'callee)
          (slot-value expr 'arguments)))
 
-; (define-method (pretty-print (expr <get>)))
+(define-method (pretty-print (expr <get>))
+  (parenthesize-slots expr "get" '(object name)))
 
 (define-method (pretty-print (expr <grouping>))
   (parenthesize "group" (slot-value expr 'expression)))
@@ -44,15 +44,17 @@
 
 (define-method (pretty-print (expr <logical>))
   (parenthesize-slots expr
-                      (token-lexeme (slot-value expr 'operator))
+                      (slot-value expr 'operator)
                       '(left right)))
 
-; (define-method (pretty-print (expr <set>)))
+(define-method (pretty-print (expr <set>))
+  (parenthesize-slots expr "set" '(object name value)))
+
 ; (define-method (pretty-print (expr <super>)))
 ; (define-method (pretty-print (expr <this>)))
 
 (define-method (pretty-print (expr <unary>))
-  (parenthesize (token-lexeme (slot-value expr 'operator))
+  (parenthesize (slot-value expr 'operator)
                 (slot-value expr 'right)))
 
 (define-method (pretty-print (expr <variable>))
@@ -66,7 +68,7 @@
 (define-method (pretty-print (stmt <class>))
   (apply parenthesize
          "class"
-         (token-lexeme (slot-value stmt 'name))
+         (slot-value stmt 'name)
          (slot-value stmt 'methods)))
 
 (define-method (pretty-print (stmt <expr-stmt>))
@@ -74,9 +76,8 @@
 
 (define-method (pretty-print (stmt <function>))
   (parenthesize "fun"
-                (token-lexeme (slot-value stmt 'name))
-                (apply parenthesize
-                       (map token-lexeme (slot-value stmt 'params)))
+                (slot-value stmt 'name)
+                (apply parenthesize (slot-value stmt 'params))
                 (slot-value stmt 'body)))
 
 (define-method (pretty-print (stmt <if>))
@@ -94,7 +95,7 @@
   (parenthesize "return" (slot-value stmt 'value)))
 
 (define-method (pretty-print (stmt <var-stmt>))
-  (let ((name (token-lexeme (slot-value stmt 'name)))
+  (let ((name (slot-value stmt 'name))
         (initializer (slot-value stmt 'initializer)))
     (if initializer
         (parenthesize "var" name (pretty-print initializer))
@@ -105,5 +106,9 @@
 
 
 ;;; Default
+(define-primitive-class <token> (<record>) token?)
+(define-method (pretty-print (token <token>))
+  (token-lexeme token))
+
 (define-method (pretty-print (node #t))
   node)

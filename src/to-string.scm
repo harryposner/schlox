@@ -2,17 +2,20 @@
          (uses callable token instance))
 
 (import (chicken port)
-        coops)
+        coops
+        coops-primitive-objects)
 
 
 (define-generic (lox->string lox-object))
 
 (define-method (lox->string (lox-object #t))
-  (cond
-    ((null? lox-object) "nil")
-    ((eq? lox-object #t) "true")
-    ((eq? lox-object #f) "false")
-    (else (call-with-output-string (lambda (out) (write lox-object out))))))
+  (call-with-output-string (lambda (out) (write lox-object out))))
+
+(define-method (lox->string (lox-object <null>))
+  "nil")
+
+(define-method (lox->string (lox-object <boolean>))
+  (if lox-object "true" "false"))
 
 (define-method (lox->string (lox-object <native-fn>))
   "<native-fn>")
