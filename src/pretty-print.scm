@@ -51,7 +51,9 @@
   (parenthesize-slots expr "set" '(object name value)))
 
 ; (define-method (pretty-print (expr <super>)))
-; (define-method (pretty-print (expr <this>)))
+
+(define-method (pretty-print (expr <this>))
+  "this")
 
 (define-method (pretty-print (expr <unary>))
   (parenthesize (slot-value expr 'operator)

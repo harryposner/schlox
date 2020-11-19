@@ -1,4 +1,4 @@
-(declare (uses token callable to-string resolver)
+(declare (uses token callable to-string resolver instance environment)
          (unit lox-eval))
 
 (include "src/utils.scm")
@@ -42,53 +42,8 @@
 
 
 ;;; State and Environments
-(define-record env enclosing hash)
-(define (make-environment enclosing)
-  (make-env enclosing (make-hash-table string=? string-hash)))
 (define global-environment
   (make-environment #f))
-
-(define (env-ancestor env depth)
-  (if (zero? depth)
-      env
-      (env-ancestor (env-enclosing env) (sub1 depth))))
-
-(define (env-define! env name-token value)
-  (hash-table-set! (env-hash env) (token-lexeme name-token) value))
-
-(define (env-for-var env name-token)
-  (cond
-    ((not env)
-     (runtime-error!
-       name-token
-       (string-append "Undefined variable '" (token-lexeme name-token) "'.")))
-    ((hash-table-exists? (env-hash env) (token-lexeme name-token))
-     env)
-    (else (env-for-var (env-enclosing env) name-token))))
-
-(define (env-set! env name-token value)
-  (hash-table-set! (env-hash (env-for-var env name-token))
-                   (token-lexeme name-token)
-                   value))
-
-(define (env-set-at! env name-token value depth)
-  (hash-table-set! (env-hash (env-ancestor env depth))
-                   (token-lexeme name-token)
-                   value))
-
-(define (env-ref env name-token)
-  (hash-table-ref (env-hash (env-for-var env name-token))
-                  (token-lexeme name-token)))
-
-(define (env-ref-at env name-token depth)
-  (hash-table-ref (env-hash (env-ancestor env depth))
-                  (token-lexeme name-token)))
-
-(define (look-up-variable env name-token expr)
-  (let ((distance (hash-table-ref/default locals expr #f)))
-    (if distance
-        (env-ref-at env name-token distance)
-        (env-ref global-environment name-token))))
 
 
 ;;; Native functions
@@ -99,11 +54,12 @@
 (define-syntax define-native
   (syntax-rules ()
     ((_ (name args ...) (body ...))
-     (hash-table-set! (env-hash global-environment)
-                      (symbol->string 'name)
-                      (make <native-fn>
-                            'arity (length '(args ...))
-                            'procedure (lambda (args ...) (body ...)))))))
+     (env-set-at! global-environment
+                  (symbol->string 'name)
+                  (make <native-fn>
+                        'arity (length '(args ...))
+                        'procedure (lambda (args ...) (body ...)))
+                  0))))
 
 (define-native (clock) (/ (current-milliseconds) 1000))
 
@@ -115,10 +71,10 @@
 (define-method (lox-eval (expr <assignment>) env)
   (let ((value (lox-eval (slot-value expr 'value) env))
         (distance (hash-table-ref/default locals expr #f))
-        (name (slot-value expr 'name)))
+        (name-token (slot-value expr 'name)))
     (if distance
-        (env-set-at! env name value distance)
-        (env-set! global-environment name value))
+        (env-set-at! env (token-lexeme name-token) value distance)
+        (env-set! global-environment name-token value))
     value))
 
 (define-method (lox-eval (expr <binary>) env)
@@ -170,7 +126,12 @@
                            "but got " (number->string got) "."))))
     (lox-apply callee args)))
 
-; (define-method (lox-eval (expr <get>) env))
+(define-method (lox-eval (expr <get>) env)
+  (let ((object (lox-eval (slot-value expr 'object) env))
+        (name-token (slot-value expr 'name)))
+    (if (eq? (class-of object) <instance>)
+        (instance-property object name-token)
+        (runtime-error! name-token "Only instances have properties."))))
 
 (define-method (lox-eval (expr <grouping>) env)
   (lox-eval (slot-value expr 'expression) env))
@@ -190,11 +151,19 @@
                      (lox-eval right-expr env)))
            (else (error "UNREACHABLE: lox-eval <logical>")))))
 
-; (define-method (lox-eval (expr <set>) env))
+(define-method (lox-eval (expr <set>) env)
+  (let ((object (lox-eval (slot-value expr 'object) env))
+        (name-token (slot-value expr 'name)))
+    (if (not (eq? (class-of object) <instance>))
+        (runtime-error! name-token "Only instances have fields.")
+        (let ((value (lox-eval (slot-value expr 'value) env)))
+          (instance-set! object name-token value)
+          value))))
 
 ; (define-method (lox-eval (expr <super>) env))
 
-; (define-method (lox-eval (expr <this>) env))
+(define-method (lox-eval (expr <this>) env)
+  (look-up-variable env (slot-value expr 'keyword) expr))
 
 (define-method (lox-eval (expr <unary>) env)
   (let ((operator (slot-value expr 'operator))
@@ -219,11 +188,19 @@
 (define-method (lox-eval (stmt <class>) env)
   (let ((name-token (slot-value stmt 'name)))
     (env-define! env name-token #f)
-    (env-set! env
-              name-token
-              (make <lox-class>
-                    'name (token-lexeme name-token)
-                    'methods (make-hash-table string=? string-hash)))))
+    (let ((class (make <lox-class> 'name (token-lexeme name-token))))
+      (for-each
+        (lambda (method)
+          (let ((method-name (token-lexeme (slot-value method 'name))))
+            (hash-table-set!
+              (slot-value class 'methods)
+              method-name
+              (make <lox-fn>
+                    'declaration method
+                    'closure env
+                    'is-initializer (string=? method-name "init")))))
+        (slot-value stmt 'methods))
+      (env-set! env name-token class))))
 
 
 
@@ -235,7 +212,8 @@
                (slot-value stmt 'name)
                (make <lox-fn>
                      'declaration stmt
-                     'closure env)))
+                     'closure env
+                     'is-initializer #f)))
 
 (define-method (lox-eval (stmt <if>) env)
   (if (lox-truthy? (lox-eval (slot-value stmt 'condition) env))
@@ -260,10 +238,10 @@
   ;;; we know that the return continuation does exist in some enclosing
   ;;; environment.
   ((look-up-variable env (slot-value stmt 'keyword) stmt)
-   (lox-eval (slot-value stmt 'value) env)))
-
-  ; (let ((keyword-token (slot-value stmt 'keyword)))
-  ;   ((env-ref env keyword-token) (lox-eval (slot-value stmt 'value) env))))
+   (let ((value (slot-value stmt 'value)))
+     (if value
+         (lox-eval value env)
+         '()))))
 
 (define-method (lox-eval (stmt <var-stmt>) env)
   (let ((initializer (slot-value stmt 'initializer)))

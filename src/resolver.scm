@@ -61,6 +61,8 @@
       (resolve (slot-value stmt 'body)))
     (set! current-function enclosing-function)))
 
+(define current-class #f)
+
 
 (define-generic (resolve ast-node))
 
@@ -78,7 +80,8 @@
   (resolve (slot-value expr 'callee))
   (for-each resolve (slot-value expr 'arguments)))
 
-; (define-method (resolve (expr <get>)))
+(define-method (resolve (expr <get>))
+  (resolve (slot-value expr 'object)))
 
 (define-method (resolve (expr <grouping>))
   (resolve (slot-value expr 'expression)))
@@ -90,9 +93,17 @@
   (resolve (slot-value expr 'left))
   (resolve (slot-value expr 'right)))
 
-; (define-method (resolve (expr <set>)))
+(define-method (resolve (expr <set>))
+  (resolve (slot-value expr 'value))
+  (resolve (slot-value expr 'object)))
+
 ; (define-method (resolve (expr <super>)))
-; (define-method (resolve (expr <this>)))
+
+(define-method (resolve (expr <this>))
+  (if (not current-class)
+      (lox-error (slot-value expr 'keyword)
+                 "Can't use 'this' outside of a class.")
+      (resolve-local! expr (slot-value expr 'keyword))))
 
 (define-method (resolve (expr <unary>))
   (resolve (slot-value expr 'right)))
@@ -113,8 +124,21 @@
     (for-each resolve (slot-value stmt 'statements))))
 
 (define-method (resolve (stmt <class>))
-  (declare! (slot-value stmt 'name))
-  (define! (slot-value stmt 'name)))
+  (let ((enclosing-class current-class))
+    (set! current-class #:CLASS)
+    (declare! (slot-value stmt 'name))
+    (define! (slot-value stmt 'name))
+    (with-scope
+      (hash-table-set! (car scopes) "this" #t)
+      (for-each
+        (lambda (method)
+          (resolve-function!
+            method
+            (if (string=? "init" (token-lexeme (slot-value method 'name)))
+                #:INITIALIZER
+                #:METHOD)))
+        (slot-value stmt 'methods)))
+    (set! current-class enclosing-class)))
 
 (define-method (resolve (stmt <expr-stmt>))
   (resolve (slot-value stmt 'expression)))
@@ -138,17 +162,12 @@
       (lox-error (slot-value stmt 'keyword)
                  "Can't return from top-level code.")
       (begin
-        (if (not (null? (slot-value stmt 'value)))
-            (resolve (slot-value stmt 'value)))
-        (resolve-local! stmt (slot-value stmt 'keyword))
-        )))
-
-  ; (cond
-  ;   ((not current-function)
-  ;    (lox-error (slot-value stmt 'keyword)
-  ;               "Can't return from top-level code."))
-  ;   ((not (null? (slot-value stmt 'value)))
-  ;    (resolve (slot-value stmt 'value)))))
+        (if (slot-value stmt 'value)
+            (if (eq? current-function #:INITIALIZER)
+                (lox-error (slot-value stmt 'keyword)
+                           "Can't return a value from an initializer.")
+                (resolve (slot-value stmt 'value))))
+        (resolve-local! stmt (slot-value stmt 'keyword)))))
 
 (define-method (resolve (stmt <var-stmt>))
   (declare! (slot-value stmt 'name))

@@ -146,7 +146,7 @@
   (define (return-statement)
     (let* ((keyword prev-token)
            (value (if (check? #:SEMICOLON)
-                      (make <literal> 'value '())
+                      #f
                       (expression))))
       (consume! #:SEMICOLON "Expect ';' after return value.")
       (make <return> 'keyword keyword 'value value)))
@@ -255,6 +255,7 @@
         (let ((expr (expression)))
           (consume! #:RIGHT-PAREN "Expect ')' after expression.")
           (make <grouping> 'expression expr)))
+      ((match! #:THIS) (make <this> 'keyword prev-token))
       ((match! #:IDENTIFIER) (make <variable> 'name prev-token))
       (else (lox-error (peek) "Expect expression.")
             (continue!))))
