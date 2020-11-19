@@ -8,7 +8,7 @@ Schlox (pronounced like schlock) is a work-in-progress implementation of [the
 Lox programming language](https://github.com/munificent/craftinginterpreters/)
 from Bob Nystrom's book [Crafting
 Interpreters](https://craftinginterpreters.com/), written in [Chicken
-Scheme](https://call-cc.org/) (I've finished through Chapter 11).  It's based
+Scheme](https://call-cc.org/) (I've finished through Chapter 12).  It's based
 on jlox, the tree-walk interpreter written in Java which he describes in part
 II of the book.  There are a few differences in behavior and implementation,
 though:
@@ -34,7 +34,7 @@ though:
       when it encounters invalid syntax.
 
     - While jlox throws an exception when it reaches a return statement to
-      unwind the call stack; schlox saves the continuation of the function when
+      unwind the call stack, schlox saves the continuation of the function when
       it's called and calls that continuation with the return value when it
       evaluates a return statement in that function.
 
