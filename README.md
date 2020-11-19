@@ -8,7 +8,7 @@ Schlox (pronounced like schlock) is a work-in-progress implementation of [the
 Lox programming language](https://github.com/munificent/craftinginterpreters/)
 from Bob Nystrom's book [Crafting
 Interpreters](https://craftinginterpreters.com/), written in [Chicken
-Scheme](https://call-cc.org/) (I've finished through Chapter 10).  It's based
+Scheme](https://call-cc.org/) (I've finished through Chapter 11).  It's based
 on jlox, the tree-walk interpreter written in Java which he describes in part
 II of the book.  There are a few differences in behavior and implementation,
 though:
