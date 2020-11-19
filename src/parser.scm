@@ -3,12 +3,6 @@
 
 (import coops)
 
-(define (parsing-error token message)
-  (report (token-line token)
-          (if (eq? (token-type token) #:EOF)
-              " at end"
-              (string-append " at '" (token-lexeme token) "'"))
-          message))
 
 (define-syntax define-binary-ops
   (syntax-rules (->)
@@ -74,7 +68,7 @@
                (param-list '()))
       (cond
         ((>= param-count 255)
-         (parsing-error (peek) "Can't have more than 255 parameters."))
+         (lox-error (peek) "Can't have more than 255 parameters."))
         ((or first-loop (match! #:COMMA))
          (loop #f
                (add1 param-count)
@@ -173,7 +167,7 @@
                  (value (assignment)))
             (if (eq? (class-of expr) <variable>)
                 (make <assignment> 'name (slot-value expr 'name) 'value value)
-                (parsing-error equals "Invalid assignment target.")))
+                (lox-error equals "Invalid assignment target.")))
           expr)))
 
   (define-binary-ops
@@ -198,7 +192,7 @@
       ;;; Chapter 6, challenge #3 : error productions
       ((match! #:BANG-EQUAL #:EQUAL-EQUAL #:GREATER #:GREATER-EQUAL #:LESS
                #:LESS-EQUAL #:PLUS #:SLASH #:STAR)
-       (parsing-error prev-token "Binary operator used as unary")
+       (lox-error prev-token "Binary operator used as unary")
        (unary))
       (else (call))))
 
@@ -219,7 +213,7 @@
         (let loop ((args (list (expression))))
           (if (>= (length args) 255)
               ;;; Intentionally reporting error but not panicking
-              (parsing-error (peek) "Can't have more than 255 arguments."))
+              (lox-error (peek) "Can't have more than 255 arguments."))
           (if (match! #:COMMA)
               (loop (cons (expression) args))
               (reverse args)))))
@@ -236,7 +230,7 @@
           (consume! #:RIGHT-PAREN "Expect ')' after expression.")
           (make <grouping> 'expression expr)))
       ((match! #:IDENTIFIER) (make <variable> 'name prev-token))
-      (else (parsing-error (peek) "Expect expression.")
+      (else (lox-error (peek) "Expect expression.")
             (continue!))))
 
   ;;; Helper procedures
@@ -262,7 +256,7 @@
     (if (check? token-type)
         (advance!)
         (begin
-          (parsing-error (peek) message)
+          (lox-error (peek) message)
           (continue!))))
 
   (define (check? expected-type)

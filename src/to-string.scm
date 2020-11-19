@@ -15,7 +15,7 @@
 (define-method (lox->string (lox-object <native-fn>))
   "<native-fn>")
 
-(define-method (lox->string (lox-object <function>))
+(define-method (lox->string (lox-object <lox-fn>))
    (string-append "<fn "
                   (token-lexeme
                     (slot-value (slot-value lox-object 'declaration)

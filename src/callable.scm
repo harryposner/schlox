@@ -34,7 +34,7 @@
     (call/cc (lambda (return!)
       ;;; Since return is a keyword, you can't define anything named "return"
       ;;; in Lox, so naming the continuation "return" in the environment won't
-      ;;; clash with anything.  Not using env-define! since that takes a token,
+      ;;; clash with anything.  Not using env-define! since that takes a token
       ;;; for the name.
       (hash-table-set! (env-hash local-env) "return" return!)
       (for-each

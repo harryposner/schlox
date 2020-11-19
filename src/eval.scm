@@ -1,4 +1,4 @@
-(declare (uses token callable to-string)
+(declare (uses token callable to-string resolver)
          (unit lox-eval))
 
 (include "src/utils.scm")
@@ -29,45 +29,66 @@
 
 
 (define runtime-error!)
-(define (lox-eval-top expr)
-  (call/cc
-    (lambda (cont)
-      (set! runtime-error!
-        (lambda (token message)
-          (runtime-error (token-line token) message)
-          (cont #f)))
-      (lox-eval expr global-environment))))
+(define (lox-eval-top statements)
+  (unless (or *had-runtime-error* (null? statements))
+    (call/cc
+      (lambda (cont)
+        (set! runtime-error!
+          (lambda (token message)
+            (runtime-error (token-line token) message)
+            (cont #f)))
+        (lox-eval (car statements) global-environment)
+        (lox-eval-top (cdr statements))))))
 
 
 ;;; State and Environments
 (define-record env enclosing hash)
 (define (make-environment enclosing)
-  (make-env enclosing (make-hash-table)))
+  (make-env enclosing (make-hash-table string=? string-hash)))
 (define global-environment
   (make-environment #f))
+
+(define (env-ancestor env depth)
+  (if (zero? depth)
+      env
+      (env-ancestor (env-enclosing env) (sub1 depth))))
 
 (define (env-define! env name-token value)
   (hash-table-set! (env-hash env) (token-lexeme name-token) value))
 
-(define (env-for-var env name-token error-on-undefined)
+(define (env-for-var env name-token)
   (cond
-    ((and (not env) error-on-undefined)
+    ((not env)
      (runtime-error!
        name-token
        (string-append "Undefined variable '" (token-lexeme name-token) "'.")))
-    ((not env) #f)
     ((hash-table-exists? (env-hash env) (token-lexeme name-token))
      env)
-    (else (env-for-var (env-enclosing env) name-token error-on-undefined))))
+    (else (env-for-var (env-enclosing env) name-token))))
 
 (define (env-set! env name-token value)
-  (hash-table-set! (env-hash (env-for-var env name-token #t))
+  (hash-table-set! (env-hash (env-for-var env name-token))
+                   (token-lexeme name-token)
+                   value))
+
+(define (env-set-at! env name-token value depth)
+  (hash-table-set! (env-ancestor env depth)
                    (token-lexeme name-token)
                    value))
 
 (define (env-ref env name-token)
-  (hash-table-ref (env-hash (env-for-var env name-token #t))
+  (hash-table-ref (env-hash (env-for-var env name-token))
                   (token-lexeme name-token)))
+
+(define (env-ref-at env name-token depth)
+  (hash-table-ref (env-hash (env-ancestor env depth))
+                  (token-lexeme name-token)))
+
+(define (look-up-variable env name-token expr)
+  (let ((distance (hash-table-ref/default locals expr #f)))
+    (if distance
+        (env-ref-at env name-token distance)
+        (env-ref global-environment name-token))))
 
 
 ;;; Native functions
@@ -89,8 +110,12 @@
 ;;; Expressions
 
 (define-method (lox-eval (expr <assignment>) env)
-  (let ((value (lox-eval (slot-value expr 'value) env)))
-    (env-set! env (slot-value expr 'name) value)
+  (let ((value (lox-eval (slot-value expr 'value) env))
+        (distance (hash-table-ref/default locals expr #f))
+        (name (slot-value expr 'name)))
+    (if distance
+        (env-set-at! env name value distance)
+        (env-set! global-environment name value))
     value))
 
 (define-method (lox-eval (expr <binary>) env)
@@ -178,62 +203,65 @@
    right)))
 
 (define-method (lox-eval (expr <variable>) env)
-  (env-ref env (slot-value expr 'name)))
+  (look-up-variable env (slot-value expr 'name) expr))
 
 
 ;;; Statements
 
-(define-method (lox-eval (expr <block>) env)
+(define-method (lox-eval (stmt <block>) env)
   (let ((block-env (make-environment env)))
     (for-each (lambda (stmt) (lox-eval stmt block-env))
-              (slot-value expr 'statements))))
+              (slot-value stmt 'statements))))
 
-; (define-method (lox-eval (expr <class>) env))
+; (define-method (lox-eval (stmt <class>) env))
 
-(define-method (lox-eval (expr <expr-stmt>) env)
-  (lox-eval (slot-value expr 'expression) env))
+(define-method (lox-eval (stmt <expr-stmt>) env)
+  (lox-eval (slot-value stmt 'expression) env))
 
-(define-method (lox-eval (expr <function>) env)
+(define-method (lox-eval (stmt <function>) env)
   (env-define! env
-               (slot-value expr 'name)
+               (slot-value stmt 'name)
                (make <lox-fn>
-                     'declaration expr
-                     'closure (make-environment env))))
+                     'declaration stmt
+                     'closure env)))
 
-(define-method (lox-eval (expr <if>) env)
-  (if (lox-truthy? (lox-eval (slot-value expr 'condition) env))
-      (lox-eval (slot-value expr 'then-branch) env)
-      (let ((alternative (slot-value expr 'else-branch)))
+(define-method (lox-eval (stmt <if>) env)
+  (if (lox-truthy? (lox-eval (slot-value stmt 'condition) env))
+      (lox-eval (slot-value stmt 'then-branch) env)
+      (let ((alternative (slot-value stmt 'else-branch)))
         ;;; "if" is a statement in Lox, so we don't use the return value of
         ;;; this expression, so it's okay to use the single-armed "if" even
         ;;; though it can return an undefined value.
         (if alternative
             (lox-eval alternative env)))))
 
-(define-method (lox-eval (expr <print>) env)
-  (let ((result (lox-eval (slot-value expr 'expression) env)))
+(define-method (lox-eval (stmt <print>) env)
+  (let ((result (lox-eval (slot-value stmt 'expression) env)))
     (display (if (string? result)
                  result
                  (lox->string result))))
   (newline))
 
-(define-method (lox-eval (expr <return>) env)
+(define-method (lox-eval (stmt <return>) env)
   ;;; This will get the return continuation for the innermost enclosing
-  ;;; function.
-  (let ((keyword-token (slot-value expr 'keyword)))
-    (if (env-for-var env keyword-token #f)
-        ((env-ref env keyword-token) (lox-eval (slot-value expr 'value) env))
-        (runtime-error! keyword-token "Can't return from top-level code."))))
+  ;;; function.  The resolver catches any top-level returns at compile time, so
+  ;;; we know that the return continuation does exist in some enclosing
+  ;;; environment.
+  ((look-up-variable env (slot-value stmt 'keyword) stmt)
+   (lox-eval (slot-value stmt 'value) env)))
 
-(define-method (lox-eval (expr <var-stmt>) env)
-  (let ((initializer (slot-value expr 'initializer)))
+  ; (let ((keyword-token (slot-value stmt 'keyword)))
+  ;   ((env-ref env keyword-token) (lox-eval (slot-value stmt 'value) env))))
+
+(define-method (lox-eval (stmt <var-stmt>) env)
+  (let ((initializer (slot-value stmt 'initializer)))
     (env-define! env
-                 (slot-value expr 'name)
+                 (slot-value stmt 'name)
                  (if initializer
                      (lox-eval initializer env)
                      '()))))
 
-(define-method (lox-eval (expr <while>) env)
-  (when (lox-truthy? (lox-eval (slot-value expr 'condition) env))
-    (lox-eval (slot-value expr 'body) env)
-    (lox-eval expr env)))
+(define-method (lox-eval (stmt <while>) env)
+  (when (lox-truthy? (lox-eval (slot-value stmt 'condition) env))
+    (lox-eval (slot-value stmt 'body) env)
+    (lox-eval stmt env)))

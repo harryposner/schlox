@@ -1,4 +1,4 @@
-(declare (uses scanner parser pretty-print lox-eval))
+(declare (uses scanner parser pretty-print lox-eval resolver))
 
 (include "src/utils.scm")
 
@@ -45,15 +45,12 @@
   (newline))
 
 (define (run source)
-  (let loop ((statements (parse (scan source))))
-    (if (and (not *had-error*)
-             (not *had-runtime-error*)
-             (not (null? statements)))
-        ;;; Can't just for-each lox-eval-top because we need to check for
-        ;;; runtime errors between each statement
-        (begin
-          (lox-eval-top (car statements))
-          (loop (cdr statements))))))
+  (let ((statements (parse (scan source))))
+    (unless *had-error*
+      (for-each resolve statements)
+      (unless *had-error*
+        ;;; Stopping on runtime errors is in lox-eval-top
+        (lox-eval-top statements)))))
 
 (define (run-pretty-print source)
   (let ((statements (parse (scan source))))
@@ -77,10 +74,20 @@
   (newline (current-error-port))
   (set! *had-error* #t))
 
+(define (lox-error token message)
+  ;;; Parsing and resolution errors.  Scanning errors are handled by
+  ;;; scanning-error in scanner.scm.
+  (report (token-line token)
+          (if (eq? (token-type token) #:EOF)
+              " at end"
+              (string-append " at '" (token-lexeme token) "'"))
+          message))
+
 (define (runtime-error line message)
-  (for-each (lambda (str) (display str (current-error-port)))
-            `("[line " ,(number->string line) "] "))
   (display message (current-error-port))
+  (newline (current-error-port))
+  (for-each (lambda (str) (display str (current-error-port)))
+            `("[line " ,(number->string line) "]"))
   (newline (current-error-port))
   (set! *had-runtime-error* #t))
 
