@@ -57,49 +57,50 @@
 
 
 ;;; Statements
-(define-method (pretty-print (expr <block>))
-  (apply parenthesize "block" (slot-value expr 'statements)))
+(define-method (pretty-print (stmt <block>))
+  (apply parenthesize "block" (slot-value stmt 'statements)))
 
-; (define-method (pretty-print (expr <class>)))
+(define-method (pretty-print (stmt <class>))
+  (apply parenthesize
+         "class"
+         (token-lexeme (slot-value stmt 'name))
+         (slot-value stmt 'methods)))
 
-(define-method (pretty-print (expr <expr-stmt>))
-  (pretty-print (slot-value expr 'expression)))
+(define-method (pretty-print (stmt <expr-stmt>))
+  (pretty-print (slot-value stmt 'expression)))
 
-(define-method (pretty-print (expr <function>))
-  (string-append "(function "
-                 (token-lexeme (slot-value expr 'name))
-                 " ("
-                 (string-intersperse
-                   (map token-lexeme (slot-value expr 'params)))
-                 ") "
-                 (pretty-print (slot-value expr 'body))
-                 ")"))
+(define-method (pretty-print (stmt <function>))
+  (parenthesize "fun"
+                (token-lexeme (slot-value stmt 'name))
+                (apply parenthesize
+                       (map token-lexeme (slot-value stmt 'params)))
+                (slot-value stmt 'body)))
 
-(define-method (pretty-print (expr <if>))
-  (let ((condition (slot-value expr 'condition))
-        (then-branch (slot-value expr 'then-branch))
-        (else-branch (slot-value expr 'else-branch)))
+(define-method (pretty-print (stmt <if>))
+  (let ((condition (slot-value stmt 'condition))
+        (then-branch (slot-value stmt 'then-branch))
+        (else-branch (slot-value stmt 'else-branch)))
     (if else-branch
         (parenthesize "if" condition then-branch else-branch)
         (parenthesize "if" condition then-branch))))
 
-(define-method (pretty-print (expr <print>))
-  (parenthesize "print" (slot-value expr 'expression)))
+(define-method (pretty-print (stmt <print>))
+  (parenthesize "print" (slot-value stmt 'expression)))
 
-(define-method (pretty-print (expr <return>))
-  (parenthesize "return" (slot-value expr 'value)))
+(define-method (pretty-print (stmt <return>))
+  (parenthesize "return" (slot-value stmt 'value)))
 
-(define-method (pretty-print (expr <var-stmt>))
-  (let ((name (token-lexeme (slot-value expr 'name)))
-        (initializer (slot-value expr 'initializer)))
+(define-method (pretty-print (stmt <var-stmt>))
+  (let ((name (token-lexeme (slot-value stmt 'name)))
+        (initializer (slot-value stmt 'initializer)))
     (if initializer
         (parenthesize "var" name (pretty-print initializer))
         (parenthesize "var" name))))
 
-(define-method (pretty-print (expr <while>))
-  (parenthesize-slots expr "while" '(condition body)))
+(define-method (pretty-print (stmt <while>))
+  (parenthesize-slots stmt "while" '(condition body)))
 
 
 ;;; Default
-(define-method (pretty-print (expr #t))
-  expr)
+(define-method (pretty-print (node #t))
+  node)
