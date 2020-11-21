@@ -4,14 +4,12 @@
 > place!"
 > - some guy in front of me in line at Harold's Chicken Shack
 
-Schlox (pronounced like schlock) is a work-in-progress implementation of [the
-Lox programming language](https://github.com/munificent/craftinginterpreters/)
-from Bob Nystrom's book [Crafting
-Interpreters](https://craftinginterpreters.com/), written in [Chicken
-Scheme](https://call-cc.org/) (I've finished through Chapter 12).  It's based
-on jlox, the tree-walk interpreter written in Java which he describes in part
-II of the book.  There are a few differences in behavior and implementation,
-though:
+Schlox (pronounced like schlock) is an implementation of [the Lox programming
+language](https://github.com/munificent/craftinginterpreters/) from Bob
+Nystrom's book [Crafting Interpreters](https://craftinginterpreters.com/),
+written in [Chicken Scheme](https://call-cc.org/).  It's based on jlox, the
+tree-walk interpreter written in Java which he describes in part II of the
+book.  There are a few differences in behavior and implementation, though:
 
 - Running the interpreter with the flag `--pretty-print` will pretty-print the
   AST instead of evaluating it.
