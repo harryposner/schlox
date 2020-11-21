@@ -160,7 +160,18 @@
           (instance-set! object name-token value)
           value))))
 
-; (define-method (lox-eval (expr <super>) env))
+(define-method (lox-eval (expr <super>) env)
+  (let* ((distance (hash-table-ref locals expr))
+         (superclass (env-ref-at env "super" distance))
+         (instance (env-ref-at env "this" (sub1 distance))))
+    (if-let ((method (find-method superclass
+                                  (token-lexeme (slot-value expr 'method)))))
+            (bind method instance)
+            (runtime-error!
+              (slot-value expr 'method)
+              (string-append "Undefined property '"
+                             (token-lexeme (slot-value expr 'method))
+                             "'.")))))
 
 (define-method (lox-eval (expr <this>) env)
   (look-up-variable env (slot-value expr 'keyword) expr))
@@ -196,7 +207,10 @@
     (env-define! env name-token #f)
     (let ((class (make <lox-class>
                        'name (token-lexeme name-token)
-                       'superclass superclass)))
+                       'superclass superclass))
+          (class-env (if superclass (make-environment env) env)))
+      (if superclass
+          (env-set-at! class-env "super" superclass 0))
       (for-each
         (lambda (method)
           (let ((method-name (token-lexeme (slot-value method 'name))))
@@ -205,7 +219,7 @@
               method-name
               (make <lox-fn>
                     'declaration method
-                    'closure env
+                    'closure class-env
                     'is-initializer (string=? method-name "init")))))
         (slot-value stmt 'methods))
       (env-set! env name-token class))))

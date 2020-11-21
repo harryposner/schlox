@@ -99,7 +99,15 @@
   (resolve (slot-value expr 'value))
   (resolve (slot-value expr 'object)))
 
-; (define-method (resolve (expr <super>)))
+(define-method (resolve (expr <super>))
+  (cond
+    ((not current-class)
+     (lox-error (slot-value expr 'keyword)
+                "Can't use 'super' outside of a class."))
+    ((not (eq? current-class #:SUBCLASS))
+     (lox-error (slot-value expr 'keyword)
+                "Can't use 'super' in a class with no superclass."))
+    (else (resolve-local! expr (slot-value expr 'keyword)))))
 
 (define-method (resolve (expr <this>))
   (if (not current-class)
@@ -130,23 +138,32 @@
     (set! current-class #:CLASS)
     (declare! (slot-value stmt 'name))
     (define! (slot-value stmt 'name))
-    (if-let ((superclass (slot-value stmt 'superclass)))
-            (if (string=? (token-lexeme (slot-value stmt 'name))
-                          (token-lexeme (slot-value superclass 'name)))
-                (lox-error (slot-value superclass 'name)
-                           "A class can't inherit from itself.")
-                (resolve superclass)))
-    (with-scope
-      (hash-table-set! (car scopes) "this" #t)
-      (for-each
-        (lambda (method)
-          (resolve-function!
-            method
-            (if (string=? "init" (token-lexeme (slot-value method 'name)))
-                #:INITIALIZER
-                #:METHOD)))
-        (slot-value stmt 'methods)))
+    (when-let ((superclass (slot-value stmt 'superclass)))
+      (set! current-class #:SUBCLASS)
+      (if (string=? (token-lexeme (slot-value stmt 'name))
+                    (token-lexeme (slot-value superclass 'name)))
+          (lox-error (slot-value superclass 'name)
+                     "A class can't inherit from itself.")
+          (resolve superclass)))
+
+    (if (slot-value stmt 'superclass)
+        (with-scope
+          (hash-table-set! (car scopes) "super" #t)
+          (add-this! stmt))
+        (add-this! stmt))
     (set! current-class enclosing-class)))
+
+(define (add-this! stmt)
+  (with-scope
+    (hash-table-set! (car scopes) "this" #t)
+    (for-each
+      (lambda (method)
+        (resolve-function!
+          method
+          (if (string=? "init" (token-lexeme (slot-value method 'name)))
+              #:INITIALIZER
+              #:METHOD)))
+      (slot-value stmt 'methods))))
 
 (define-method (resolve (stmt <expr-stmt>))
   (resolve (slot-value stmt 'expression)))

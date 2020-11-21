@@ -23,3 +23,9 @@
     ((_ ((name condition)) consequent)
      (let ((name condition))
        (if name consequent)))))
+
+(define-syntax when-let
+  (syntax-rules ()
+    ((_ ((name condition)) body ...)
+     (if-let ((name condition))
+             (begin body ...)))))

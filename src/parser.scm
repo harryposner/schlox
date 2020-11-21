@@ -263,6 +263,12 @@
         (let ((expr (expression)))
           (consume! #:RIGHT-PAREN "Expect ')' after expression.")
           (make <grouping> 'expression expr)))
+      ((match! #:SUPER)
+       (let ((keyword prev-token))
+         (consume! #:DOT "Expect '.' after 'super'.")
+         (let ((method (consume! #:IDENTIFIER
+                                 "Expect superclass method name")))
+           (make <super> 'keyword keyword 'method method))))
       ((match! #:THIS) (make <this> 'keyword prev-token))
       ((match! #:IDENTIFIER) (make <variable> 'name prev-token))
       (else (lox-error (peek) "Expect expression.")
