@@ -53,13 +53,21 @@
       (else (statement))))
 
   (define (class-declaration)
-    (let ((name (consume! #:IDENTIFIER "Expect class name.")))
+    (let* ((name (consume! #:IDENTIFIER "Expect class name."))
+           (superclass (if (match! #:LESS-THAN)
+                           (begin
+                             (consume! #:IDENTIFIER "Expect superclass name.")
+                             (make <variable> 'name prev-token))
+                           #f)))
       (consume! #:LEFT-BRACE "Expect '{' before class body.")
       (let loop ((methods '()))
         (if (or (check? #:RIGHT-BRACE) (at-end?))
             (begin
               (consume! #:RIGHT-BRACE "Expect '}' after class body.")
-              (make <class> 'name name 'methods (reverse methods)))
+              (make <class>
+                    'name name
+                    'methods (reverse methods)
+                    'superclass superclass))
             (loop (cons (function "method") methods))))))
 
   (define (function kind)

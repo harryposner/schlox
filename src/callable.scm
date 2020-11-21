@@ -19,10 +19,9 @@
                       'params)))
 
 (define-method (arity (callable <lox-class>))
-  (let ((initializer (find-method callable "init")))
-    (if initializer
-        (arity initializer)
-        0)))
+  (if-let ((initializer (find-method callable "init")))
+          (arity initializer)
+          0))
 
 
 (define-generic (lox-apply callable args))

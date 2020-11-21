@@ -14,3 +14,12 @@
      (let ((p pred?)
            (to-test expr))
        (condp-helper p to-test clauses ...)))))
+
+(define-syntax if-let
+  (syntax-rules ()
+    ((_ ((name condition)) consequent alternative)
+     (let ((name condition))
+       (if name consequent alternative)))
+    ((_ ((name condition)) consequent)
+     (let ((name condition))
+       (if name consequent)))))

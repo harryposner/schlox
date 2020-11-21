@@ -1,6 +1,8 @@
 (declare (unit resolver)
          (uses token))
 
+(include "src/utils.scm")
+
 (import coops srfi-69)
 
 
@@ -128,6 +130,8 @@
     (set! current-class #:CLASS)
     (declare! (slot-value stmt 'name))
     (define! (slot-value stmt 'name))
+    (if-let ((superclass (slot-value stmt 'superclass)))
+            (resolve superclass))
     (with-scope
       (hash-table-set! (car scopes) "this" #t)
       (for-each
@@ -151,8 +155,8 @@
 (define-method (resolve (stmt <if>))
   (resolve (slot-value stmt 'condition))
   (resolve (slot-value stmt 'then-branch))
-  (if (slot-value stmt 'else-branch)
-      (resolve (slot-value stmt 'else-branch))))
+  (if-let ((alternative (slot-value stmt 'else-branch)))
+          (resolve else-branch)))
 
 (define-method (resolve (stmt <print>))
   (resolve (slot-value stmt 'expression)))
@@ -171,9 +175,8 @@
 
 (define-method (resolve (stmt <var-stmt>))
   (declare! (slot-value stmt 'name))
-  (let ((initializer (slot-value stmt 'initializer)))
-    (when initializer
-      (resolve initializer)))
+  (if-let ((initializer (slot-value stmt 'initializer)))
+          (resolve initializer))
   (define! (slot-value stmt 'name)))
 
 

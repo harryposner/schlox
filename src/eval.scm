@@ -218,12 +218,11 @@
 (define-method (lox-eval (stmt <if>) env)
   (if (lox-truthy? (lox-eval (slot-value stmt 'condition) env))
       (lox-eval (slot-value stmt 'then-branch) env)
-      (let ((alternative (slot-value stmt 'else-branch)))
+      (if-let ((alternative (slot-value stmt 'else-branch)))
         ;;; "if" is a statement in Lox, so we don't use the return value of
         ;;; this expression, so it's okay to use the single-armed "if" even
         ;;; though it can return an undefined value.
-        (if alternative
-            (lox-eval alternative env)))))
+        (lox-eval alternative env))))
 
 (define-method (lox-eval (stmt <print>) env)
   (let ((result (lox-eval (slot-value stmt 'expression) env)))
@@ -238,10 +237,9 @@
   ;;; we know that the return continuation does exist in some enclosing
   ;;; environment.
   ((look-up-variable env (slot-value stmt 'keyword) stmt)
-   (let ((value (slot-value stmt 'value)))
-     (if value
-         (lox-eval value env)
-         '()))))
+   (if-let ((value (slot-value stmt 'value)))
+           (lox-eval value env)
+           '())))
 
 (define-method (lox-eval (stmt <var-stmt>) env)
   (let ((initializer (slot-value stmt 'initializer)))
