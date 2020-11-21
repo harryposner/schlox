@@ -54,7 +54,7 @@
 
   (define (class-declaration)
     (let* ((name (consume! #:IDENTIFIER "Expect class name."))
-           (superclass (if (match! #:LESS-THAN)
+           (superclass (if (match! #:LESS)
                            (begin
                              (consume! #:IDENTIFIER "Expect superclass name.")
                              (make <variable> 'name prev-token))

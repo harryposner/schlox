@@ -1,6 +1,8 @@
 (declare (unit pretty-print)
          (uses ast token to-string))
 
+(include "src/utils.scm")
+
 (import (chicken string)
         coops
         coops-primitive-objects)
@@ -71,6 +73,9 @@
   (apply parenthesize
          "class"
          (slot-value stmt 'name)
+         (if-let ((superclass (slot-value stmt 'superclass)))
+                 superclass
+                 "")
          (slot-value stmt 'methods)))
 
 (define-method (pretty-print (stmt <expr-stmt>))

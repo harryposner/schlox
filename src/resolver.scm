@@ -131,7 +131,11 @@
     (declare! (slot-value stmt 'name))
     (define! (slot-value stmt 'name))
     (if-let ((superclass (slot-value stmt 'superclass)))
-            (resolve superclass))
+            (if (string=? (token-lexeme (slot-value stmt 'name))
+                          (token-lexeme (slot-value superclass 'name)))
+                (lox-error (slot-value superclass 'name)
+                           "A class can't inherit from itself.")
+                (resolve superclass)))
     (with-scope
       (hash-table-set! (car scopes) "this" #t)
       (for-each

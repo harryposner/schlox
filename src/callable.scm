@@ -1,6 +1,8 @@
 (declare (unit callable)
          (uses environment))
 
+(include "src/utils.scm")
+
 (import coops srfi-69)
 
 (define-class <native-fn> () (arity procedure))
@@ -70,7 +72,13 @@
   (memq (class-of x) (list <native-fn> <lox-fn> <lox-class>)))
 
 (define (find-method lox-class name)
-  (hash-table-ref/default (slot-value lox-class 'methods) name #f))
+  (if-let ((method (hash-table-ref/default (slot-value lox-class 'methods)
+                                           name
+                                           #f)))
+          method
+          (if-let ((superclass (slot-value lox-class 'superclass)))
+                  (find-method superclass name)
+                  #f)))
 
 (define (bind method instance)
   (let ((instance-env (make-environment (slot-value method 'closure))))
