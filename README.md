@@ -47,7 +47,7 @@ book.  There are a few differences in behavior and implementation, though:
 
 - Proper tail-call elimination!
 
-# Requirements
+## Requirements
 
 - [Chicken Scheme](https://call-cc.org/) version 5 or greater
 - The [COOPS egg](http://wiki.call-cc.org/eggref/5/coops).  This is necessary
@@ -55,3 +55,28 @@ book.  There are a few differences in behavior and implementation, though:
   since multimethods aren't in the R7RS standard.
 - The [SRFI-69 egg](http://wiki.call-cc.org/eggref/5/srfi-69).  This provides
   hash tables, which I use for environments.
+
+## Build instructions
+
+1. [Install Chicken Scheme](http://code.call-cc.org/).  If you're on Ubuntu,
+   `apt-get install chicken-bin` will work fine, but it doesn't include
+   [Feathers](http://wiki.call-cc.org/man/5/Debugging), the graphical debugger
+   for Chicken.
+
+2. Install the COOPS and SRFI-69 eggs with `chicken-install coops srfi-69`.
+   You may need to run that as the superuser depending on where you or your
+   package manager installed `lib/chicken`.
+
+3. Navigate to the top directory of this repository (i.e. where this README is
+   located) and run `make`.  The executable for the interpreter will be
+   `build/schlox`.  To make a debug build that you can use with Feathers, run
+   `make debug`, and the interpreter will be `debug/schlox`.
+
+## Next steps
+
+Writing schlox was a whole lot of fun, but as far as I can tell, it's done.
+The only remaining tasks I have in mind are getting the Lox test suite running
+([the version in the main
+repo](https://github.com/munificent/craftinginterpreters/blob/master/tool/bin/test.dart)
+assumes you're testing jlox or clox) and getting
+[LoxLox](https://benhoyt.com/writings/loxlox/) to run.
