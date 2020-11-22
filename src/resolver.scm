@@ -177,7 +177,7 @@
   (resolve (slot-value stmt 'condition))
   (resolve (slot-value stmt 'then-branch))
   (if-let ((alternative (slot-value stmt 'else-branch)))
-          (resolve else-branch)))
+          (resolve alternative)))
 
 (define-method (resolve (stmt <print>))
   (resolve (slot-value stmt 'expression)))
