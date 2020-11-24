@@ -51,10 +51,14 @@
           (env-define! local-env param-token arg-val))
         (slot-value declaration 'params)
         args)
-      ;;; The lox-eval needs to be part of the call/cc function since, if we do
-      ;;; call the continuation (i.e. explicitly return from the function), we
-      ;;; don't want to evaluate it again.
-      (lox-eval (slot-value declaration 'body) local-env)
+      ;;; The execute-block needs to be part of the call/cc function since, if
+      ;;; we do call the continuation (i.e. explicitly return from the
+      ;;; function), we don't want to evaluate it again.
+      ;;; It needs to be execute-block and not lox-eval because lox-eval
+      ;;; creates a new environment for the block.  We don't want that---the
+      ;;; function body environment should be the same one where the parameters
+      ;;; are defined.
+      (execute-block (slot-value declaration 'body) local-env)
       ;;; Return value in absence of explicit return
       (if (slot-value callable 'is-initializer)
           (env-ref-at local-env "this" 1)

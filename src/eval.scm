@@ -193,8 +193,15 @@
 
 (define-method (lox-eval (stmt <block>) env)
   (let ((block-env (make-environment env)))
-    (for-each (lambda (stmt) (lox-eval stmt block-env))
-              (slot-value stmt 'statements))))
+    (execute-block stmt block-env)))
+
+;;; Separate creating an environment for a block from executing it because
+;;; function bodies are also blocks, and we don't want to create an extra
+;;; environment when evaluating the function body---it should be the same as
+;;; the environment of the function arguments.
+(define (execute-block stmt env)
+  (for-each (lambda (stmt) (lox-eval stmt env))
+                (slot-value stmt 'statements)))
 
 (define-method (lox-eval (stmt <class>) env)
   (define superclass (slot-value stmt 'superclass))

@@ -60,7 +60,8 @@
       (define! return-token)
       (for-each (lambda (param) (declare! param) (define! param))
                 (slot-value stmt 'params))
-      (resolve (slot-value stmt 'body)))
+      (for-each (lambda (body-stmt) (resolve body-stmt))
+                (slot-value (slot-value stmt 'body) 'statements)))
     (set! current-function enclosing-function)))
 
 (define current-class #f)
