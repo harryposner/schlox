@@ -30,27 +30,25 @@
     (if (at-end?)
         (reverse statements)
         (begin
-          (set! statements (cons (top-of-grammar) statements))
+          (set! statements (cons (declaration) statements))
           (parse-tokens))))
 
   ;;; Instead of throwing an exception on an error and catching it at a
   ;;; synchronization point, we'll set continue! to the continuation at the
   ;;; synchronization point and call it if we have an error.
   (define continue!)
-  (define (top-of-grammar)
-    (call/cc
-      (lambda (cont)
-        (set! continue! (lambda () (synchronize!) (cont #f)))
-        (declaration))))
 
   ;;; Grammar rules
 
   (define (declaration)
-    (cond
-      ((match! #:CLASS) (class-declaration))
-      ((match! #:FUN) (function "function"))
-      ((match! #:VAR) (var-declaration))
-      (else (statement))))
+    (call/cc
+      (lambda (cont)
+        (set! continue! (lambda () (synchronize!) (cont #f)))
+        (cond
+          ((match! #:CLASS) (class-declaration))
+          ((match! #:FUN) (function "function"))
+          ((match! #:VAR) (var-declaration))
+          (else (statement))))))
 
   (define (class-declaration)
     (let* ((name (consume! #:IDENTIFIER "Expect class name."))
@@ -268,7 +266,7 @@
        (let ((keyword prev-token))
          (consume! #:DOT "Expect '.' after 'super'.")
          (let ((method (consume! #:IDENTIFIER
-                                 "Expect superclass method name")))
+                                 "Expect superclass method name.")))
            (make <super> 'keyword keyword 'method method))))
       ((match! #:THIS) (make <this> 'keyword prev-token))
       ((match! #:IDENTIFIER) (make <variable> 'name prev-token))
