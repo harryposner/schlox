@@ -74,9 +74,8 @@ book.  There are a few differences in behavior and implementation, though:
 
 ## Next steps
 
-Writing schlox was a whole lot of fun, but as far as I can tell, it's done.
-The only remaining tasks I have in mind are getting the Lox test suite running
-([the version in the main
-repo](https://github.com/munificent/craftinginterpreters/blob/master/tool/bin/test.dart)
-assumes you're testing jlox or clox) and getting
+Writing schlox was a whole lot of fun, but as far as I can tell, it's done.  It
+passes almost all of the jlox test suite---the only exceptions are those that
+arise from Schlox having a proper numeric tower instead of using floats for all
+its numbers.  The only remaining task I see is getting
 [LoxLox](https://benhoyt.com/writings/loxlox/) to run.
