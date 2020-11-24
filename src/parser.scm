@@ -85,11 +85,11 @@
 
   (define (parameters)
     (let loop ((first-loop #t)  ;;; emulating do-while loop
-               (param-count 1)
+               (param-count 0)
                (param-list '()))
       (cond
-        ((>= param-count 255)
-         (lox-error (peek) "Can't have more than 255 parameters."))
+        ((> param-count 255)
+         (lox-error prev-token "Can't have more than 255 parameters."))
         ((or first-loop (match! #:COMMA))
          (loop #f
                (add1 param-count)
@@ -244,12 +244,13 @@
   (define (call-arguments)
     (if (check? #:RIGHT-PAREN)
         '()
-        (let loop ((args (list (expression))))
-          (if (>= (length args) 255)
+        (let loop ((args (list (expression)))
+                   (arg-count 1))
+          (if (> arg-count 255)
               ;;; Intentionally reporting error but not panicking
-              (lox-error (peek) "Can't have more than 255 arguments."))
+              (lox-error prev-token "Can't have more than 255 arguments."))
           (if (match! #:COMMA)
-              (loop (cons (expression) args))
+              (loop (cons (expression) args) (add1 arg-count))
               (reverse args)))))
 
   (define (primary)

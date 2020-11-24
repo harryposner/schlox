@@ -93,7 +93,7 @@
                ((and (string? left) (string? right)) string-append)
                (else (runtime-error!
                        operator
-                       "Operands must be two numbers or two strings"))))
+                       "Operands must be two numbers or two strings."))))
             (#:SLASH
              ;;; Chapter 7, challenge #3
              (if (and (exact? right) (= right 0))

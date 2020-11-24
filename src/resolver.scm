@@ -42,7 +42,7 @@
           (name (token-lexeme name-token)))
       (if (hash-table-exists? scope name)
           (lox-error name-token
-                     "Already a variable with this name in this scope.")
+                     "Already variable with this name in this scope.")
           (hash-table-set! scope name #f)))))
 
 (define (define! name-token)

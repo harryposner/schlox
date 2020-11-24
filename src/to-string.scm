@@ -18,7 +18,7 @@
   (if lox-object "true" "false"))
 
 (define-method (lox->string (lox-object <native-fn>))
-  "<native-fn>")
+  "<native fn>")
 
 (define-method (lox->string (lox-object <lox-fn>))
    (string-append "<fn "
