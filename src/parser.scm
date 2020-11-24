@@ -281,7 +281,7 @@
     (advance!)
     (unless
       (or (at-end?)
-          (eq? prev-token #:SEMICOLON)
+          (eq? (token-type prev-token) #:SEMICOLON)
           (memq (token-type (peek))
                 '(#:CLASS #:FUN #:VAR #:FOR #:IF #:WHILE #:PRINT #:RETURN)))
       (synchronize!)))
