@@ -182,5 +182,6 @@
   (define (alphanumeric? char)
     (or (alpha? char) (digit? char)))
 
-
-  (scan-tokens!))
+  (if (eof-object? source)
+      (list (make-token #:EOF "" #f line))
+      (scan-tokens!)))
