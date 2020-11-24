@@ -204,9 +204,10 @@
                 (slot-value stmt 'statements)))
 
 (define-method (lox-eval (stmt <class>) env)
-  (define superclass (slot-value stmt 'superclass))
-  (when superclass
-    (set! superclass (lox-eval superclass env))
+  (define superclass-var (slot-value stmt 'superclass))
+  (define superclass #f)
+  (when superclass-var
+    (set! superclass (lox-eval superclass-var env))
     (if (not (eq? (class-of superclass) <lox-class>))
         (runtime-error! (slot-value superclass-var 'name)
                         "Superclass must be a class.")))
